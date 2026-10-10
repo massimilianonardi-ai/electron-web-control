@@ -22,7 +22,11 @@ jobs:
       - name: Configure Electron SUID sandbox helper in disposable runner
         shell: bash
         run: |
-          helper=node_modules/electron/dist/chrome-sandbox
+          binary=$(node -p "require('electron')")
+          echo "Electron binary: $binary"
+          ls -la node_modules/electron || :
+          ls -la "$(dirname "$binary")" || :
+          helper="$(dirname "$binary")/chrome-sandbox"
           echo "Electron sandbox helper before:"
           ls -l "$helper"
           sudo chown root:root "$helper"
