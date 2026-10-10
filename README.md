@@ -42,10 +42,27 @@ Electron native `webContents.sendInputEvent` events can be accepted by the main 
 
 `ELECTRON_WEB_CONTROL_SOFTWARE_RENDERING=1` explicitly disables hardware acceleration for environments such as Xvfb where screenshot capture otherwise fails with a Viz renderer error. It is enabled in the Linux CI job, not by default on graphical desktops. A normal Linux installation needs a usable Chromium sandbox helper or supported user-namespace sandbox setup; the test runner prepares its disposable Electron helper without disabling sandboxing.
 
-`mk build` emits `dist/electron-web-control-v<version>-all.tar.gz`. The release archive contains only the provider's portable Node.js source, its executable commands, metadata and README. Electron/Chromium is intentionally **not** bundled: a deployed provider must consume the separately managed `electron` package together with `nodejs`. Do not add a `pkg-catalog` provider declaration until the real release and package integration checks pass. The reference Playwright provider remains unchanged.
+`mk build` emits `dist/electron-web-control-v<version>-all.tar.gz`. The release archive contains only the provider's portable Node.js source, its executable commands, metadata and README. Electron/Chromium is intentionally **not** bundled: a deployed provider must consume the separately managed `electron` package together with `nodejs`. The `v0.1.0` archive is published and `pkg-catalog` now defines the `electron-web-control` concrete package and its `web-control 1` facility realization. The reference Playwright provider remains unchanged.
 
 ## Build and distribution
 
 After dependencies are prepared, `mk check test build` is the canonical development lifecycle. The automated Linux build uses `m mk` with managed Node.js 26. Direct development can use `npm run build`.
 
 The release is osarch-independent by design because it does not include the Electron application binary or npm's `node_modules`. Its runtime requires managed `nodejs` and the platform-appropriate `electron` package, with real sandbox setup on Linux. The package-specific controller HOME must remain separate from both the Electron binary package and any personal browser profile.
+
+
+## Installation through RumiAI OS
+
+The released portable package consumes the existing `nodejs 26` and `electron 1` runtime facilities. The package resolver plans and installs their concrete providers through the normal `pkg` dependency path; Electron itself remains an independent platform-specific package.
+
+```sh
+pkg install electron-web-control
+pkg provider default web-control electron-web-control
+srv start web-control
+web-control status
+srv stop web-control
+```
+
+A configured `web-control` default selects this provider for the ordinary public command and service without changing their portable names. Changing the provider does **not** transfer Playwright profile data or authenticated sessions. Managed provider state is resolved by `state-path` and the package launcher; callers should not construct its physical location.
+
+The real published package/install/facility/service path passed formal GitHub Actions validation on Linux x86_64 and ARM64 (run `38086638206`). The macOS ARM64 package-validation job in that run must be consulted separately; prior standalone macOS browser tests do not substitute for package installation evidence. Physical user-host and manual Google login compatibility remain untested.
