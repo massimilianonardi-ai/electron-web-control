@@ -19,6 +19,15 @@ jobs:
           node-version: '22'
       - name: Install exact Electron dependency
         run: npm install --no-audit --no-fund
+      - name: Configure Electron SUID sandbox helper in disposable runner
+        shell: bash
+        run: |
+          helper=node_modules/electron/dist/chrome-sandbox
+          test -f "$helper"
+          sudo chown root:root "$helper"
+          sudo chmod 4755 "$helper"
+          test -u "$helper"
+          test "$(stat -c %u "$helper")" = 0
       - name: Syntax-check runtime and tests
         run: npm run check
       - name: Exercise real Electron window and local service under Xvfb
