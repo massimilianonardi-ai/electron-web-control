@@ -22,7 +22,7 @@ jobs:
       - name: Configure Electron SUID sandbox helper in disposable runner
         shell: bash
         run: |
-          binary=$(node -p "require('electron')")
+          binary=$(node -p "require('electron')" | tail -n 1)
           echo "Electron binary: $binary"
           ls -la node_modules/electron || :
           ls -la "$(dirname "$binary")" || :
