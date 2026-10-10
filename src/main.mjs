@@ -278,6 +278,7 @@ app.on('window-all-closed', () => {});
 process.on('SIGTERM', () => { shutdown().catch((error) => { console.error(error); app.exit(1); }); });
 process.on('SIGINT', () => { shutdown().catch((error) => { console.error(error); app.exit(1); }); });
 
+async function start() {
 await app.whenReady();
 console.error('[electron-web-control] app ready');
 newWindow();
@@ -315,3 +316,8 @@ await new Promise((resolve, reject) => {
 });
 await fsp.chmod(SOCKET, 0o600);
 console.log(JSON.stringify({ event: 'ready', socket: SOCKET, profile: PROFILE }));
+
+}
+
+// Electron ESM entry loading must finish before app.ready can be emitted.
+void start().catch((error) => { console.error('[electron-web-control] startup failed:', error); app.exit(1); });
