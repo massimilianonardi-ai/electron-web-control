@@ -44,6 +44,7 @@ jobs:
       - name: Exercise real Electron window and local service under Xvfb/Openbox
         env:
           ELECTRON_DISABLE_SECURITY_WARNINGS: '0'
+          ELECTRON_WEB_CONTROL_SOFTWARE_RENDERING: '1'
         run: |
           timeout --signal=TERM 180s xvfb-run -a bash -c '
             openbox >/tmp/electron-openbox.log 2>&1 &

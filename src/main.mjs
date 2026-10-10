@@ -8,6 +8,10 @@ import { webControlHome, webControlSocketPath } from './runtime.mjs';
 
 console.error('[electron-web-control] entering Electron main');
 process.umask(0o077);
+if (process.env.ELECTRON_WEB_CONTROL_SOFTWARE_RENDERING === '1') {
+  app.disableHardwareAcceleration();
+  console.error('[electron-web-control] software rendering enabled for this process');
+}
 const HOME = webControlHome();
 const PROFILE = process.env.WEB_CONTROL_PROFILE || 'default';
 const SOCKET = webControlSocketPath();
