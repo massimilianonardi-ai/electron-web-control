@@ -3,8 +3,9 @@ import fsp from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import { webControlHome, webControlSocketPath } from './runtime.mjs';
+import { startPageURL } from './start-page.mjs';
 
 console.error('[electron-web-control] entering Electron main');
 process.umask(0o077);
@@ -54,6 +55,7 @@ function registerWindow(window) {
       width: 1000,
       height: 800,
       show: !HIDDEN,
+      backgroundColor: '#f4f6fa',
       webPreferences: secureWebPreferences()
     }
   }));
@@ -61,15 +63,64 @@ function registerWindow(window) {
   return id;
 }
 
-function newWindow() {
+async function newWindow() {
   const window = new BrowserWindow({
     width: 1280,
     height: 900,
-    show: !HIDDEN,
+    show: false,
+    backgroundColor: '#f4f6fa',
     paintWhenInitiallyHidden: true,
     webPreferences: secureWebPreferences()
   });
-  return { id: registerWindow(window), window };
+  const id = registerWindow(window);
+  if (!HIDDEN) {
+    try {
+      await window.loadURL(startPageURL);
+      window.show();
+    } catch (error) {
+      window.destroy();
+      throw error;
+    }
+  }
+  return { id, window };
+}
+
+function navigationMenu() {
+  const focused = () => BrowserWindow.getFocusedWindow();
+  const withPage = (action) => {
+    const window = focused();
+    if (window && !window.isDestroyed()) action(window);
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: 'Navigate',
+      submenu: [
+        { label: 'Enter web address', accelerator: 'CommandOrControl+L',
+          click: () => withPage((window) => {
+            window.loadURL(startPageURL).catch((error) =>
+              console.error('[electron-web-control] address page failed:', error));
+          }) },
+        { label: 'New window', accelerator: 'CommandOrControl+N',
+          click: () => { void newWindow().catch((error) =>
+            console.error('[electron-web-control] new window failed:', error)); } },
+        { type: 'separator' },
+        { label: 'Back', accelerator: 'Alt+Left',
+          click: () => withPage((window) => {
+            const history = window.webContents.navigationHistory;
+            if (history.canGoBack()) history.goBack();
+          }) },
+        { label: 'Forward', accelerator: 'Alt+Right',
+          click: () => withPage((window) => {
+            const history = window.webContents.navigationHistory;
+            if (history.canGoForward()) history.goForward();
+          }) },
+        { label: 'Reload', accelerator: 'CommandOrControl+R',
+          click: () => withPage((window) => window.webContents.reload()) }
+      ]
+    },
+    { role: 'editMenu' },
+    { role: 'windowMenu' }
+  ]));
 }
 
 function requirePage(id) {
@@ -280,7 +331,7 @@ async function dispatch(method, params = {}) {
   }
   if (method === 'page.list') return [...pages].map(([id, window]) => describe(id, window));
   if (method === 'page.new') {
-    const { id, window } = newWindow();
+    const { id, window } = await newWindow();
     return describe(id, window);
   }
   if (method === 'page.close') {
@@ -354,7 +405,8 @@ process.on('SIGINT', () => { shutdown().catch((error) => { console.error(error);
 async function start() {
 await app.whenReady();
 console.error('[electron-web-control] app ready');
-newWindow();
+navigationMenu();
+await newWindow();
 console.error('[electron-web-control] initial window created');
 await checkStaleSocket();
 server = net.createServer((socket) => {

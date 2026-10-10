@@ -90,6 +90,17 @@ try {
   await start();
   const initial = await cli('page', 'list');
   assert.ok(initial.length > 0, 'visible initial Electron window');
+  const entry = initial[0].id;
+  const landing = await cli('page', 'inspect', entry, 'html');
+  assert.match(landing.html, /id="web-control-address"/, 'visible windows have a navigation entry');
+  const landingShot = await cli('page', 'capture', entry, path.join(work, 'start-page'), 'screenshot');
+  const landingPNG = await fs.readFile(landingShot.files.screenshot);
+  assert.ok(landingPNG.length > 1024, 'start page produces a nonempty rendered screenshot');
+  assert.equal(landingPNG.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  await cli('page', 'fill', entry, '#web-control-address', fixture.baseUrl);
+  await cli('page', 'click', entry, '#web-control-open');
+  await poll(async () => /dynamic-ready/.test(await text(entry)),
+    'navigate to fixture from desktop address form without page.navigate');
   const page = (await cli('page', 'new')).id;
   await cli('page', 'navigate', page, fixture.baseUrl);
   await poll(async () => /dynamic-ready/.test(await text(page)), 'dynamic rendered content');
@@ -150,6 +161,7 @@ try {
     ok: true,
     checks: [
       'private Unix socket', 'secure renderer excludes Node APIs',
+      'visible start page and in-window address navigation',
       'real Electron navigation and dynamic DOM',
       'fill/click/press', 'popup window tracking', 'HTML/text/PNG capture',
       'cookie/localStorage persistence across service restart',
