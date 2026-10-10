@@ -4,10 +4,15 @@
     "check": [
       "check-main",
       "check-client",
-      "check-tests"
+      "check-tests",
+      "check-runtime",
+      "check-build"
     ],
     "test": [
       "test"
+    ],
+    "build": [
+      "build-release"
     ]
   },
   "operations": {
@@ -52,6 +57,45 @@
         "command": "npm",
         "args": [
           "test"
+        ]
+      }
+    },
+    "check-runtime": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/runtime.mjs"
+        ]
+      }
+    },
+    "check-build": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "scripts/build-release.mjs"
+        ]
+      }
+    },
+    "build-release": {
+      "prerequisites": [
+        "test",
+        "check-build"
+      ],
+      "outputs": {
+        "artifact": {
+          "path": "dist/release-artifact"
+        }
+      },
+      "action": {
+        "type": "process",
+        "command": "npm",
+        "args": [
+          "run",
+          "build"
         ]
       }
     }
