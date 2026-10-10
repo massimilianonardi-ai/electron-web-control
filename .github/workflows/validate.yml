@@ -54,13 +54,16 @@ jobs:
             sleep 1
             npm test
           '
+      - name: Isolate RumiAI OS from the Electron ESM project
+        shell: bash
+        run: cp -a rumiai-os "$RUNNER_TEMP/rumiai-os"
       - name: Install managed Node.js runtime for mk
         shell: bash
         run: |
-          ./rumiai-os/m osarch update
-          ./rumiai-os/m pkg install nodejs
-          ./rumiai-os/m pkg default nodejs
-          ./rumiai-os/m node --version
+          "$RUNNER_TEMP/rumiai-os/m" osarch update
+          "$RUNNER_TEMP/rumiai-os/m" pkg install nodejs
+          "$RUNNER_TEMP/rumiai-os/m" pkg default nodejs
+          "$RUNNER_TEMP/rumiai-os/m" node --version
       - name: Build release through canonical mk lifecycle
         shell: bash
         env:
@@ -71,7 +74,7 @@ jobs:
             wm=$!
             trap "kill $wm 2>/dev/null || :" EXIT
             sleep 1
-            ./rumiai-os/m mk --project "$PWD" check test build
+            "$RUNNER_TEMP/rumiai-os/m" mk --project "$PWD" check test build
           '
           test -s dist/release-artifact
           test -s dist/electron-web-control-v0.1.0-all.tar.gz
