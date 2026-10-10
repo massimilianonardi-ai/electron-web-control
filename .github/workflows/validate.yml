@@ -107,7 +107,8 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [linux, macos]
+    # Portable JavaScript archive is built and verified on Linux; macOS smoke validation runs independently.
+    needs: [linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
