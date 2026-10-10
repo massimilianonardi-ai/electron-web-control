@@ -191,9 +191,10 @@ async function press(window, target, key) {
     element.focus();
   }, target);
   if (!HIDDEN) window.focus();
-  window.webContents.sendInputEvent({ type: 'keyDown', key });
-  if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', key });
-  window.webContents.sendInputEvent({ type: 'keyUp', key });
+  if (typeof key !== 'string' || !key) throw new Error('page.press requires key');
+  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
+  if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
+  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
 }
 
 async function dispatch(method, params = {}) {
