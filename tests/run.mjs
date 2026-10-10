@@ -100,7 +100,11 @@ try {
   await cli('page', 'fill', page, '#name', 'rumiai');
   await poll(async () => /rumiai/.test(await text(page)), 'input reflected into DOM');
   await cli('page', 'press', page, '#name', 'Enter');
-  await poll(async () => /pressed-enter/.test(await text(page)), 'keyboard input');
+  try {
+    await poll(async () => /pressed-enter/.test(await text(page)), 'keyboard input');
+  } catch (error) {
+    throw new Error(error.message + '\nobserved text=' + await text(page) + '\ncontroller stderr=' + stderr);
+  }
 
   const before = await cli('page', 'list');
   await cli('page', 'click', page, '#popup-button');

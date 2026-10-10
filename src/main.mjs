@@ -193,6 +193,10 @@ async function press(window, target, key) {
     if (!element) throw new Error('target not found: ' + selector);
     element.focus();
   }, target);
+  console.error('[electron-web-control] press focus window=' + window.isFocused() + ' contents=' + window.webContents.isFocused());
+  window.webContents.once('before-input-event', (_event, input) => {
+    console.error('[electron-web-control] observed key=' + input.key + ' code=' + input.code);
+  });
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
   if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
