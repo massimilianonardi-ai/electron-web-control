@@ -1,0 +1,27 @@
+name: Electron Web Control PoC
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact Electron dependency
+        run: npm install --no-audit --no-fund
+      - name: Syntax-check runtime and tests
+        run: npm run check
+      - name: Exercise real Electron window and local service under Xvfb
+        env:
+          ELECTRON_DISABLE_SECURITY_WARNINGS: '0'
+        run: xvfb-run -a npm test

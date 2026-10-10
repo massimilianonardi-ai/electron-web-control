@@ -42,9 +42,14 @@ export async function createFixtureServer() {
       <h1>web-control fixture</h1>
       <div id="dynamic">loading</div>
       <button id="popup-button">open popup</button>
-      <input id="name" value="">
+      <input id="name" value=""><div id="pressed"></div><div id="webdriver"></div><div id="privileged"></div>
       <div id="echo"></div>
     `, `
+      document.querySelector('#webdriver').textContent = 'webdriver=' + String(navigator.webdriver);
+      document.querySelector('#privileged').textContent = 'node=' + typeof process + ' require=' + typeof require;
+      document.querySelector('#name').addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.querySelector('#pressed').textContent = 'pressed-enter';
+      });
       fetch('/api/value').then(r => r.json()).then(data => {
         document.querySelector('#dynamic').textContent = data.value;
       });
