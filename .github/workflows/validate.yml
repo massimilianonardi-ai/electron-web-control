@@ -78,7 +78,7 @@ jobs:
           '
           test -s dist/release-artifact
           test -s dist/electron-web-control-v0.1.2-all.tar.gz
-          tar -tzf dist/electron-web-control-v0.1.1-all.tar.gz > /tmp/electron-web-control-artifact-contents
+          tar -tzf dist/electron-web-control-v0.1.2-all.tar.gz > /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/package.json' /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/src/main.mjs' /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/bin/web-control-service' /tmp/electron-web-control-artifact-contents

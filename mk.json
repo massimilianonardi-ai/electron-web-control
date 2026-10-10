@@ -3,6 +3,7 @@
   "goals": {
     "check": [
       "check-main",
+      "check-start-page",
       "check-client",
       "check-tests",
       "check-runtime",
@@ -24,6 +25,13 @@
           "--check",
           "src/main.mjs"
         ]
+      }
+    },
+    "check-start-page": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": ["--check", "src/start-page.mjs"]
       }
     },
     "check-client": {
