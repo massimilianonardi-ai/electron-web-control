@@ -79,6 +79,7 @@ async function text(page) {
 }
 
 try {
+  process.stderr.write('Electron test: launch controller\n');
   await start();
   const initial = await cli('page', 'list');
   assert.ok(initial.length > 0, 'visible initial Electron window');
@@ -109,6 +110,7 @@ try {
   assert.match(await fs.readFile(captured.files.html, 'utf8'), /dynamic-ready/);
   assert.equal((await fs.readFile(captured.files.screenshot)).subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
 
+  process.stderr.write('Electron test: login and persistence\n');
   await cli('page', 'navigate', page, fixture.baseUrl + '/login');
   await cli('page', 'click', page, '#login');
   await poll(async () => /cookie=active storage=active/.test(await text(page)), 'login fixture persistence');
@@ -117,6 +119,7 @@ try {
   assert.ok(storage.cookies.some((cookie) => cookie.name === 'poc_session' && cookie.value === 'active'));
   await stop();
 
+  process.stderr.write('Electron test: restart and recover windows\n');
   await start();
   const next = (await cli('page', 'new')).id;
   await cli('page', 'navigate', next, fixture.baseUrl + '/account');
@@ -144,8 +147,17 @@ try {
   }, null, 2) + '\n');
 } finally {
   if (service) {
-    service.kill('SIGTERM');
-    await new Promise((resolve) => service.once('exit', resolve));
+    const child = service;
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM');
+      await Promise.race([
+        new Promise((resolve) => child.once('exit', resolve)),
+        new Promise((resolve) => setTimeout(() => {
+          if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+          resolve();
+        }, 5000))
+      ]);
+    }
   }
   await fixture.close();
   await fs.rm(work, { recursive: true, force: true });
