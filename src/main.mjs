@@ -194,11 +194,18 @@ async function press(window, target, key) {
     element.focus();
   }, target);
   console.error('[electron-web-control] press focus window=' + window.isFocused() + ' contents=' + window.webContents.isFocused());
+  const focused = await evaluate(window, () => ({
+    id: document.activeElement?.id ?? '',
+    tag: document.activeElement?.tagName ?? ''
+  }));
+  console.error('[electron-web-control] focused element=' + focused.tag + '#' + focused.id);
   window.webContents.once('before-input-event', (_event, input) => {
     console.error('[electron-web-control] observed key=' + input.key + ' code=' + input.code);
   });
+  await new Promise((resolve) => setTimeout(resolve, 70));
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
   if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
+  await new Promise((resolve) => setTimeout(resolve, 70));
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
 }
 
