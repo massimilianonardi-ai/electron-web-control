@@ -23,9 +23,12 @@ jobs:
         shell: bash
         run: |
           helper=node_modules/electron/dist/chrome-sandbox
-          test -f "$helper"
+          echo "Electron sandbox helper before:"
+          ls -l "$helper"
           sudo chown root:root "$helper"
           sudo chmod 4755 "$helper"
+          echo "Electron sandbox helper after:"
+          stat -c 'mode=%a owner=%u file=%n' "$helper"
           test -u "$helper"
           test "$(stat -c %u "$helper")" = 0
       - name: Syntax-check runtime and tests
