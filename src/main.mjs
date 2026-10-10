@@ -156,6 +156,7 @@ async function capture(id, window, params) {
 }
 
 async function click(window, target) {
+  const beforeUrl = window.webContents.getURL();
   const point = await evaluate(window, (selector) => {
     const element = document.querySelector(selector);
     if (!element) throw new Error('target not found: ' + selector);
@@ -173,29 +174,33 @@ async function click(window, target) {
   window.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   window.webContents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await new Promise((resolve) => setTimeout(resolve, 110));
-  const delivered = await evaluate(window, (selector) => {
-    const element = document.querySelector(selector);
-    return Boolean(element?.__webControlClickObserved);
-  }, target);
-  if (!delivered) {
-    // Fallback DOM click is synthetic (isTrusted=false), not equivalent to a physical click.
-    console.warn('[electron-web-control] native click not delivered; using synthetic DOM fallback');
-    await evaluate(window, (selector) => {
+  if (window.webContents.getURL() !== beforeUrl) return;
+
+  try {
+    const mode = await evaluate(window, (selector) => {
       const element = document.querySelector(selector);
-      if (!element) throw new Error('target not found: ' + selector);
-      element.click();
-    }, target);
-  }
-  await evaluate(window, (selector) => {
-    const element = document.querySelector(selector);
-    if (element) {
+      if (!element) throw new Error('target not found after click: ' + selector);
+      const delivered = Boolean(element.__webControlClickObserved);
       if (element.__webControlClickObserver) {
         element.removeEventListener('click', element.__webControlClickObserver, true);
       }
       delete element.__webControlClickObserver;
       delete element.__webControlClickObserved;
+      if (!delivered) {
+        // Synthetic DOM click is not trusted and is not a physical input substitute.
+        element.click();
+        return 'synthetic';
+      }
+      return 'native';
+    }, target);
+    if (mode === 'synthetic') {
+      console.warn('[electron-web-control] native click not delivered; used synthetic DOM fallback');
     }
-  }, target);
+  } catch (error) {
+    // A successful click may navigate and replace its execution context immediately.
+    if (window.webContents.getURL() !== beforeUrl) return;
+    throw error;
+  }
 }
 
 async function fill(window, target, value) {
