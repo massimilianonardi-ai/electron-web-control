@@ -158,12 +158,40 @@ async function click(window, target) {
     element.scrollIntoView({ block: 'center', inline: 'center' });
     const rect = element.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) throw new Error('target is not visible: ' + selector);
+    element.__webControlClickObserved = false;
+    element.__webControlClickObserver = () => { element.__webControlClickObserved = true; };
+    element.addEventListener('click', element.__webControlClickObserver, true);
     return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
   }, target);
   if (!HIDDEN) window.focus();
+  window.webContents.focus();
   window.webContents.sendInputEvent({ type: 'mouseMove', x: point.x, y: point.y });
   window.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   window.webContents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 110));
+  const delivered = await evaluate(window, (selector) => {
+    const element = document.querySelector(selector);
+    return Boolean(element?.__webControlClickObserved);
+  }, target);
+  if (!delivered) {
+    // Fallback DOM click is synthetic (isTrusted=false), not equivalent to a physical click.
+    console.warn('[electron-web-control] native click not delivered; using synthetic DOM fallback');
+    await evaluate(window, (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error('target not found: ' + selector);
+      element.click();
+    }, target);
+  }
+  await evaluate(window, (selector) => {
+    const element = document.querySelector(selector);
+    if (element) {
+      if (element.__webControlClickObserver) {
+        element.removeEventListener('click', element.__webControlClickObserver, true);
+      }
+      delete element.__webControlClickObserver;
+      delete element.__webControlClickObserved;
+    }
+  }, target);
 }
 
 async function fill(window, target, value) {
