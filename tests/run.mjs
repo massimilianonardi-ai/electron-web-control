@@ -56,8 +56,10 @@ async function start() {
   service.stderr.on('data', (chunk) => { stderr += chunk; });
   service.once('error', (error) => { stderr += String(error); });
   service.once('exit', (code, signal) => { stderr += '\nElectron process exit: ' + code + ' signal: ' + signal; });
-  const status = await cli('status').catch((error) => {
-    throw new Error('Electron failed to start: ' + error.message + '\nexitCode=' + service?.exitCode + ' signal=' + service?.signalCode + '\nstdout=' + stdout + '\nstderr=' + stderr);
+  const status = await cli('status').catch(async (error) => {
+    const processes = (await execFileAsync('ps', ['-eo', 'pid,ppid,stat,args'])).stdout
+      .split('\n').filter((line) => /electron|web-control/.test(line)).slice(0, 22).join('\n');
+    throw new Error('Electron failed to start: ' + error.message + '\nexitCode=' + service?.exitCode + ' signal=' + service?.signalCode + '\nstdout=' + stdout + '\nstderr=' + stderr + '\nprocesses=' + processes);
   });
   assert.equal(status.profile, 'default');
   assert.equal(status.headless, false);

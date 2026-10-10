@@ -6,6 +6,7 @@ import process from 'node:process';
 import { app, BrowserWindow } from 'electron';
 import { webControlHome, webControlSocketPath } from './runtime.mjs';
 
+console.error('[electron-web-control] entering Electron main');
 process.umask(0o077);
 const HOME = webControlHome();
 const PROFILE = process.env.WEB_CONTROL_PROFILE || 'default';
@@ -278,7 +279,9 @@ process.on('SIGTERM', () => { shutdown().catch((error) => { console.error(error)
 process.on('SIGINT', () => { shutdown().catch((error) => { console.error(error); app.exit(1); }); });
 
 await app.whenReady();
+console.error('[electron-web-control] app ready');
 newWindow();
+console.error('[electron-web-control] initial window created');
 await checkStaleSocket();
 server = net.createServer((socket) => {
   connections.add(socket);
