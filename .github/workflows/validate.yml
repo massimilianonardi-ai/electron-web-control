@@ -48,3 +48,18 @@ jobs:
             sleep 1
             npm test
           '
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Electron dependency
+        run: npm install --no-audit --no-fund
+      - name: Syntax-check runtime and tests
+        run: npm run check
+      - name: Exercise real Electron desktop and persistent session
+        run: npm test
