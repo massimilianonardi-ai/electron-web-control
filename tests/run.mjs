@@ -96,6 +96,7 @@ try {
   const html = await cli('page', 'inspect', page, 'html');
   assert.match(html.html, /id="dynamic">dynamic-ready/);
   assert.match(await text(page), /node=undefined require=undefined/);
+  assert.match(await text(page), /webdriver=false/, 'Electron webdriver fingerprint observation on this runner');
 
   await cli('page', 'fill', page, '#name', 'rumiai');
   await poll(async () => /rumiai/.test(await text(page)), 'input reflected into DOM');

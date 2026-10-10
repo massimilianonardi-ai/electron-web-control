@@ -25,11 +25,10 @@ function usage() {
     '  web-control page close <page>',
     '  web-control page navigate <page> <url>',
     '  web-control page inspect <page> <summary|html|text|storage>',
-    '  web-control page capture <page> <output-dir> [html|text|screenshot|mhtml]...',
+    '  web-control page capture <page> <output-dir> [html|text|screenshot]...',
     '  web-control page click <page> <target>',
     '  web-control page fill <page> <target> <value>',
-    '  web-control page press <page> <target> <key>',
-    '  web-control debug cdp <page> <method> [params-json]'
+    '  web-control page press <page> <target> <key>'
   ].join('\n');
 }
 
@@ -55,14 +54,6 @@ function parse(argv) {
     if (op === 'click' && argv.length === 4) return { method: 'page.click', params: { page: argv[2], target: argv[3] } };
     if (op === 'fill' && argv.length === 5) return { method: 'page.fill', params: { page: argv[2], target: argv[3], value: argv[4] } };
     if (op === 'press' && argv.length === 5) return { method: 'page.press', params: { page: argv[2], target: argv[3], key: argv[4] } };
-  }
-  if (argv[0] === 'debug' && argv[1] === 'cdp' && (argv.length === 4 || argv.length === 5)) {
-    let params = {};
-    if (argv[4]) {
-      try { params = JSON.parse(argv[4]); }
-      catch { invalid('invalid CDP params JSON'); }
-    }
-    return { method: 'debug.cdp', params: { page: argv[2], method: argv[3], params } };
   }
   invalid('invalid invocation');
 }
