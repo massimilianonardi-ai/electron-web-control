@@ -49,6 +49,7 @@ export async function createFixtureServer() {
       document.querySelector('#privileged').textContent = 'node=' + typeof process + ' require=' + typeof require;
       document.querySelector('#name').addEventListener('keydown', e => {
         if (e.key === 'Enter') document.querySelector('#pressed').textContent = 'pressed-enter';
+        else document.querySelector('#pressed').textContent = 'key=' + e.key;
       });
       fetch('/api/value').then(r => r.json()).then(data => {
         document.querySelector('#dynamic').textContent = data.value;

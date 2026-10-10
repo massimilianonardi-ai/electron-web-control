@@ -185,13 +185,14 @@ async function fill(window, target, value) {
 }
 
 async function press(window, target, key) {
+  if (typeof key !== 'string' || !key) throw new Error('page.press requires key');
+  if (!HIDDEN) window.focus();
+  window.webContents.focus();
   await evaluate(window, (selector) => {
     const element = document.querySelector(selector);
     if (!element) throw new Error('target not found: ' + selector);
     element.focus();
   }, target);
-  if (!HIDDEN) window.focus();
-  if (typeof key !== 'string' || !key) throw new Error('page.press requires key');
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
   if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
