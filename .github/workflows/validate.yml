@@ -1,4 +1,4 @@
-name: Electron Web Control PoC
+name: validate and release Electron web-control
 
 on:
   push:
@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Checkout exact RumiAI OS for canonical mk lifecycle
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-os
+          ref: 9b0a88bbee43b4dee02b403b5f22b56bac76de71
+          path: rumiai-os
       - name: Install exact Electron dependency
         run: npm install --no-audit --no-fund
       - name: Configure Electron SUID sandbox helper in disposable runner
@@ -48,6 +54,38 @@ jobs:
             sleep 1
             npm test
           '
+      - name: Install managed Node.js runtime for mk
+        shell: bash
+        run: |
+          ./rumiai-os/m osarch update
+          ./rumiai-os/m pkg install nodejs
+          ./rumiai-os/m pkg default nodejs
+          ./rumiai-os/m node --version
+      - name: Build release through canonical mk lifecycle
+        shell: bash
+        env:
+          ELECTRON_WEB_CONTROL_SOFTWARE_RENDERING: '1'
+        run: |
+          timeout --signal=TERM 240s xvfb-run -a bash -c '
+            openbox >/tmp/electron-openbox-mk.log 2>&1 &
+            wm=$!
+            trap "kill $wm 2>/dev/null || :" EXIT
+            sleep 1
+            ./rumiai-os/m mk --project "$PWD" check test build
+          '
+          test -s dist/release-artifact
+          test -s dist/electron-web-control-v0.1.0-all.tar.gz
+          tar -tzf dist/electron-web-control-v0.1.0-all.tar.gz > /tmp/electron-web-control-artifact-contents
+          grep -Fx 'electron-web-control/package.json' /tmp/electron-web-control-artifact-contents
+          grep -Fx 'electron-web-control/src/main.mjs' /tmp/electron-web-control-artifact-contents
+          grep -Fx 'electron-web-control/bin/web-control-service' /tmp/electron-web-control-artifact-contents
+          ! grep -F '/node_modules/' /tmp/electron-web-control-artifact-contents
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-web-control-all
+          path: dist/electron-web-control-v*-all.tar.gz
+          if-no-files-found: error
 
   macos:
     runs-on: macos-latest
@@ -63,3 +101,30 @@ jobs:
         run: npm run check
       - name: Exercise real Electron desktop and persistent session
         run: npm test
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [linux, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release metadata
+        uses: actions/checkout@v4
+      - name: Download built release archive
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-web-control-all
+          path: artifacts
+      - name: Publish versioned release if absent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already exists; no new release created"
+            exit 0
+          fi
+          gh release create "$tag" artifacts/*.tar.gz --target "$GITHUB_SHA" --title "$tag" --generate-notes

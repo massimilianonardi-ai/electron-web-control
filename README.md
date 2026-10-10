@@ -42,4 +42,10 @@ Electron native `webContents.sendInputEvent` events can be accepted by the main 
 
 `ELECTRON_WEB_CONTROL_SOFTWARE_RENDERING=1` explicitly disables hardware acceleration for environments such as Xvfb where screenshot capture otherwise fails with a Viz renderer error. It is enabled in the Linux CI job, not by default on graphical desktops. A normal Linux installation needs a usable Chromium sandbox helper or supported user-namespace sandbox setup; the test runner prepares its disposable Electron helper without disabling sandboxing.
 
-This project has **no released package artifact or `pkg-catalog` provider registration yet**. The reference Playwright provider and its live installed state are unchanged.
+`mk build` emits `dist/electron-web-control-v<version>-all.tar.gz`. The release archive contains only the provider's portable Node.js source, its executable commands, metadata and README. Electron/Chromium is intentionally **not** bundled: a deployed provider must consume the separately managed `electron` package together with `nodejs`. Do not add a `pkg-catalog` provider declaration until the real release and package integration checks pass. The reference Playwright provider remains unchanged.
+
+## Build and distribution
+
+After dependencies are prepared, `mk check test build` is the canonical development lifecycle. The automated Linux build uses `m mk` with managed Node.js 26. Direct development can use `npm run build`.
+
+The release is osarch-independent by design because it does not include the Electron application binary or npm's `node_modules`. Its runtime requires managed `nodejs` and the platform-appropriate `electron` package, with real sandbox setup on Linux. The package-specific controller HOME must remain separate from both the Electron binary package and any personal browser profile.
