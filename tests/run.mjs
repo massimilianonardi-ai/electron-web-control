@@ -23,6 +23,7 @@ const env = {
 const socketPath = webControlSocketPath(env);
 let service = null;
 let stderr = '';
+let stdout = '';
 
 async function cli(...args) {
   const { stdout } = await execFileAsync(path.join(root, 'bin', 'web-control'), args, {
@@ -45,14 +46,18 @@ async function poll(fn, description) {
 
 async function start() {
   stderr = '';
+  stdout = '';
   service = spawn(path.join(root, 'bin', 'web-control-service'), [], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe']
   });
+  service.stdout.setEncoding('utf8');
+  service.stdout.on('data', (chunk) => { stdout += chunk; });
   service.stderr.setEncoding('utf8');
   service.stderr.on('data', (chunk) => { stderr += chunk; });
   service.once('error', (error) => { stderr += String(error); });
+  service.once('exit', (code, signal) => { stderr += '\nElectron process exit: ' + code + ' signal: ' + signal; });
   const status = await cli('status').catch((error) => {
-    throw new Error('Electron failed to start: ' + error.message + '\n' + stderr);
+    throw new Error('Electron failed to start: ' + error.message + '\nexitCode=' + service?.exitCode + ' signal=' + service?.signalCode + '\nstdout=' + stdout + '\nstderr=' + stderr);
   });
   assert.equal(status.profile, 'default');
   assert.equal(status.headless, false);
