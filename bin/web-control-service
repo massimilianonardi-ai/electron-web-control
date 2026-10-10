@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+self_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(CDPATH= cd -- "$self_dir/.." && pwd)
+: "${WEB_CONTROL_HOME:=${HOME:?HOME is required}/.electron-web-control}"
+export WEB_CONTROL_HOME
+if [ -n "${ELECTRON_WEB_CONTROL_EXECUTABLE-}" ]; then
+  electron_exe=$ELECTRON_WEB_CONTROL_EXECUTABLE
+elif command -v electron >/dev/null 2>&1; then
+  electron_exe=$(command -v electron)
+else
+  electron_exe="$root/node_modules/.bin/electron"
+fi
+[ -x "$electron_exe" ] || { printf '%s\n' 'web-control-service: Electron executable not found' >&2; exit 1; }
+exec "$electron_exe" "$root"

@@ -1,0 +1,17 @@
+{
+  "name": "electron-web-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "check": "node --check src/main.mjs && node --check src/client.mjs && node --check tests/run.mjs"
+  },
+  "devDependencies": {
+    "electron": "44.3.0"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "goals": {
+    "check": [
+      "check-main",
+      "check-client",
+      "check-tests"
+    ],
+    "test": [
+      "test"
+    ]
+  },
+  "operations": {
+    "check-main": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/main.mjs"
+        ]
+      }
+    },
+    "check-client": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "src/client.mjs"
+        ]
+      }
+    },
+    "check-tests": {
+      "action": {
+        "type": "process",
+        "command": "node",
+        "args": [
+          "--check",
+          "tests/run.mjs"
+        ]
+      }
+    },
+    "test": {
+      "prerequisites": [
+        "check-main",
+        "check-client",
+        "check-tests"
+      ],
+      "action": {
+        "type": "process",
+        "command": "npm",
+        "args": [
+          "test"
+        ]
+      }
+    }
+  }
+}
