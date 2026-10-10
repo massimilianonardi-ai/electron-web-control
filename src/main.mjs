@@ -192,21 +192,44 @@ async function press(window, target, key) {
     const element = document.querySelector(selector);
     if (!element) throw new Error('target not found: ' + selector);
     element.focus();
+    element.__webControlKeyObserved = false;
+    const listener = () => { element.__webControlKeyObserved = true; };
+    element.__webControlKeyObserver = listener;
+    element.addEventListener('keydown', listener, true);
   }, target);
-  console.error('[electron-web-control] press focus window=' + window.isFocused() + ' contents=' + window.webContents.isFocused());
-  const focused = await evaluate(window, () => ({
-    id: document.activeElement?.id ?? '',
-    tag: document.activeElement?.tagName ?? ''
-  }));
-  console.error('[electron-web-control] focused element=' + focused.tag + '#' + focused.id);
-  window.webContents.once('before-input-event', (_event, input) => {
-    console.error('[electron-web-control] observed key=' + input.key + ' code=' + input.code);
-  });
-  await new Promise((resolve) => setTimeout(resolve, 70));
+
   window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
   if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
-  await new Promise((resolve) => setTimeout(resolve, 70));
+  await new Promise((resolve) => setTimeout(resolve, 80));
   window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const delivered = await evaluate(window, (selector) => {
+    const element = document.querySelector(selector);
+    return Boolean(element?.__webControlKeyObserved);
+  }, target);
+  if (!delivered) {
+    // The native path can be suppressed by Chromium/Electron in some environments.
+    // This fallback is explicitly synthetic (isTrusted=false), not a stealth path.
+    console.warn('[electron-web-control] native key event not delivered; using synthetic DOM fallback');
+    await evaluate(window, (selector, pressedKey) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error('target not found: ' + selector);
+      const init = { key: pressedKey, code: pressedKey, bubbles: true, cancelable: true, composed: true };
+      element.dispatchEvent(new KeyboardEvent('keydown', init));
+      element.dispatchEvent(new KeyboardEvent('keyup', init));
+    }, target, key);
+  }
+  await evaluate(window, (selector) => {
+    const element = document.querySelector(selector);
+    if (element) {
+      if (element.__webControlKeyObserver) {
+        element.removeEventListener('keydown', element.__webControlKeyObserver, true);
+      }
+      delete element.__webControlKeyObserver;
+      delete element.__webControlKeyObserved;
+    }
+  }, target);
 }
 
 async function dispatch(method, params = {}) {
