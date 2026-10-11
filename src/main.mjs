@@ -206,6 +206,18 @@ async function capture(id, window, params) {
   return result;
 }
 
+// Internal, page-scoped Chromium input channel: no debugging listener is opened.
+async function withNativeInput(window, action) {
+  const debuggerSession = window.webContents.debugger;
+  if (debuggerSession.isAttached()) throw new Error('page debugger is already attached');
+  debuggerSession.attach('1.3');
+  try {
+    return await action((method, params) => debuggerSession.sendCommand(method, params));
+  } finally {
+    if (debuggerSession.isAttached()) debuggerSession.detach();
+  }
+}
+
 async function click(window, target) {
   const beforeUrl = window.webContents.getURL();
   const point = await evaluate(window, (selector) => {
@@ -219,11 +231,20 @@ async function click(window, target) {
     element.addEventListener('click', element.__webControlClickObserver, true);
     return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
   }, target);
-  if (!HIDDEN) window.focus();
-  window.webContents.focus();
-  window.webContents.sendInputEvent({ type: 'mouseMove', x: point.x, y: point.y });
-  window.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 });
-  window.webContents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left', clickCount: 1 });
+  try {
+    await withNativeInput(window, async (send) => {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y });
+      await send('Input.dispatchMouseEvent', {
+        type: 'mousePressed', x: point.x, y: point.y, button: 'left', buttons: 1, clickCount: 1
+      });
+      await send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased', x: point.x, y: point.y, button: 'left', buttons: 0, clickCount: 1
+      });
+    });
+  } catch {
+    // Keep the existing explicit untrusted fallback instead of claiming delivery.
+    console.warn('[electron-web-control] chromium click input unavailable');
+  }
   await new Promise((resolve) => setTimeout(resolve, 110));
   if (window.webContents.getURL() !== beforeUrl) return;
 
@@ -255,42 +276,105 @@ async function click(window, target) {
 }
 
 async function fill(window, target, value) {
-  await evaluate(window, (selector, text) => {
+  const text = String(value);
+  await evaluate(window, (selector) => {
     const element = document.querySelector(selector);
     if (!element) throw new Error('target not found: ' + selector);
-    element.focus();
-    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-      const prototype = element instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
-      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, String(text));
-    } else if (element.isContentEditable) {
-      element.textContent = String(text);
-    } else {
+    if (!(element instanceof HTMLInputElement ||
+          element instanceof HTMLTextAreaElement || element.isContentEditable)) {
       throw new Error('target cannot be filled: ' + selector);
     }
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: String(text) }));
+    element.focus();
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      element.select();
+    } else {
+      const selection = document.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    element.__webControlInputObserved = false;
+    element.__webControlInputObserver = (event) => {
+      if (event.isTrusted) element.__webControlInputObserved = true;
+    };
+    element.addEventListener('input', element.__webControlInputObserver, true);
+  }, target);
+  try {
+    await withNativeInput(window, (send) => send('Input.insertText', { text }));
+  } catch {
+    console.warn('[electron-web-control] chromium text input unavailable');
+  }
+  const mode = await evaluate(window, (selector, value) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error('target not found after fill: ' + selector);
+    const delivered = element.__webControlInputObserved &&
+      (element.isContentEditable ? element.textContent : element.value) === value;
+    if (element.__webControlInputObserver) {
+      element.removeEventListener('input', element.__webControlInputObserver, true);
+    }
+    delete element.__webControlInputObserver;
+    delete element.__webControlInputObserved;
+    if (delivered) return 'native';
+    // Explicit synthetic compatibility fallback; these events are not trusted.
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const prototype = element instanceof HTMLInputElement ?
+        HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
+    } else {
+      element.textContent = value;
+    }
+    element.dispatchEvent(new InputEvent('input', {
+      bubbles: true, inputType: 'insertText', data: value
+    }));
     element.dispatchEvent(new Event('change', { bubbles: true }));
-  }, target, value);
+    return 'synthetic';
+  }, target, text);
+  if (mode === 'synthetic') {
+    console.warn('[electron-web-control] native text input not delivered; used synthetic DOM fallback');
+  }
 }
 
 async function press(window, target, key) {
   if (typeof key !== 'string' || !key) throw new Error('page.press requires key');
-  if (!HIDDEN) window.focus();
-  window.webContents.focus();
   await evaluate(window, (selector) => {
     const element = document.querySelector(selector);
     if (!element) throw new Error('target not found: ' + selector);
     element.focus();
     element.__webControlKeyObserved = false;
-    const listener = () => { element.__webControlKeyObserved = true; };
+    const listener = (event) => {
+      if (event.isTrusted) element.__webControlKeyObserved = true;
+    };
     element.__webControlKeyObserver = listener;
     element.addEventListener('keydown', listener, true);
   }, target);
 
-  window.webContents.sendInputEvent({ type: 'keyDown', keyCode: key });
-  if (key.length === 1) window.webContents.sendInputEvent({ type: 'char', keyCode: key });
-  await new Promise((resolve) => setTimeout(resolve, 80));
-  window.webContents.sendInputEvent({ type: 'keyUp', keyCode: key });
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  const namedKeys = {
+    Enter: [13, 'Enter'], Tab: [9, 'Tab'], Escape: [27, 'Escape'],
+    Backspace: [8, 'Backspace'], Delete: [46, 'Delete'],
+    ArrowLeft: [37, 'ArrowLeft'], ArrowUp: [38, 'ArrowUp'],
+    ArrowRight: [39, 'ArrowRight'], ArrowDown: [40, 'ArrowDown']
+  };
+  const named = namedKeys[key];
+  const printable = key.length === 1;
+  const code = named?.[1] ?? (printable && /^[a-z]$/i.test(key) ?
+    'Key' + key.toUpperCase() : 'Unidentified');
+  const keyCode = named?.[0] ?? (printable ? key.toUpperCase().charCodeAt(0) : 0);
+  try {
+    await withNativeInput(window, async (send) => {
+      const params = { key, code, windowsVirtualKeyCode: keyCode,
+        nativeVirtualKeyCode: keyCode };
+      if (printable) {
+        params.text = key;
+        params.unmodifiedText = key;
+      }
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', ...params });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', ...params, text: '' });
+    });
+  } catch {
+    console.warn('[electron-web-control] chromium key input unavailable');
+  }
+  await new Promise((resolve) => setTimeout(resolve, 40));
 
   const delivered = await evaluate(window, (selector) => {
     const element = document.querySelector(selector);

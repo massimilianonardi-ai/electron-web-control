@@ -43,19 +43,25 @@ export async function createFixtureServer() {
       <div id="dynamic">loading</div>
       <button id="popup-button">open popup</button>
       <input id="name" value=""><div id="pressed"></div><div id="webdriver"></div><div id="privileged"></div>
+      <div id="input-trust"></div><div id="key-trust"></div><div id="click-trust"></div>
       <div id="echo"></div>
     `, `
       document.querySelector('#webdriver').textContent = 'webdriver=' + String(navigator.webdriver);
       document.querySelector('#privileged').textContent = 'node=' + typeof process + ' require=' + typeof require;
       document.querySelector('#name').addEventListener('keydown', e => {
+        document.querySelector('#key-trust').textContent = 'key-trusted=' + String(e.isTrusted);
         if (e.key === 'Enter') document.querySelector('#pressed').textContent = 'pressed-enter';
         else document.querySelector('#pressed').textContent = 'key=' + e.key;
       });
       fetch('/api/value').then(r => r.json()).then(data => {
         document.querySelector('#dynamic').textContent = data.value;
       });
-      document.querySelector('#popup-button').addEventListener('click', () => window.open('/popup', '_blank'));
+      document.querySelector('#popup-button').addEventListener('click', e => {
+        document.querySelector('#click-trust').textContent = 'click-trusted=' + String(e.isTrusted);
+        window.open('/popup', '_blank');
+      });
       document.querySelector('#name').addEventListener('input', e => {
+        document.querySelector('#input-trust').textContent = 'input-trusted=' + String(e.isTrusted);
         document.querySelector('#echo').textContent = e.target.value;
       });
     `));

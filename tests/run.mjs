@@ -111,7 +111,9 @@ try {
 
   await cli('page', 'fill', page, '#name', 'rumiai');
   await poll(async () => /rumiai/.test(await text(page)), 'input reflected into DOM');
+  assert.match(await text(page), /input-trusted=true/, 'text input must be browser delivered, not synthetic');
   await cli('page', 'press', page, '#name', 'Enter');
+  assert.match(await text(page), /key-trusted=true/, 'keydown must be browser delivered');
   try {
     await poll(async () => /pressed-enter/.test(await text(page)), 'keyboard input');
   } catch (error) {
@@ -120,6 +122,7 @@ try {
 
   const before = await cli('page', 'list');
   await cli('page', 'click', page, '#popup-button');
+  assert.match(await text(page), /click-trusted=true/, 'click must be browser delivered');
   await poll(async () => {
     const after = await cli('page', 'list');
     return after.length === before.length + 1 && after.some((entry) => entry.url.endsWith('/popup'));
@@ -163,7 +166,7 @@ try {
       'private Unix socket', 'secure renderer excludes Node APIs',
       'visible start page and in-window address navigation',
       'real Electron navigation and dynamic DOM',
-      'fill/click/press', 'popup window tracking', 'HTML/text/PNG capture',
+      'trusted Chromium fill/click/press input', 'popup window tracking', 'HTML/text/PNG capture',
       'cookie/localStorage persistence across service restart',
       'controller survives closing all browser windows',
       'browser window recreated on demand'
