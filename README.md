@@ -75,4 +75,6 @@ The original v0.1.0 package used the ordinary `web-control-service` command, col
 
 ## Portable document scrolling
 
+Electron v0.1.4 realizes the new, complete `web-control 2` compatibility contract. Previously published releases still realize immutable `web-control 1`; the package resolver does not infer compatibility across levels. Consumers of the scrolling feature must require compatibility level `2` explicitly.
+
 `web-control page scroll <page> <delta-y>` moves by a signed vertical CSS-pixel amount; zero observes without moving. It returns `page`, `scrollY`, `documentHeight`, `viewportHeight` and `atBottom`. This is an instantaneous document-level observation: lazy loading may grow the document afterward. The command has identical semantics across Electron and Playwright providers; it does not expose arbitrary page JavaScript or remote debugging. Site-specific parsers remain separate from the provider.
