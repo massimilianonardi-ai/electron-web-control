@@ -435,6 +435,21 @@ async function dispatch(method, params = {}) {
     if (kind === 'summary') return describe(id, window);
     return { page: id, ...(await inspect(window, kind)) };
   }
+  if (method === 'page.scroll') {
+    if (!Number.isSafeInteger(params.deltaY)) throw new Error('page.scroll requires a signed integer CSS-pixel delta');
+    const geometry = await evaluate(window, (deltaY) => {
+      window.scrollBy(0, deltaY);
+      const root = document.documentElement;
+      const body = document.body;
+      const documentHeight = Math.max(root?.scrollHeight || 0, root?.offsetHeight || 0,
+        body?.scrollHeight || 0, body?.offsetHeight || 0);
+      const scrollY = window.scrollY;
+      const viewportHeight = window.innerHeight;
+      return { scrollY, documentHeight, viewportHeight,
+        atBottom: scrollY + viewportHeight >= documentHeight - 20 };
+    }, params.deltaY);
+    return { page: id, ...geometry };
+  }
   if (method === 'page.capture') return capture(id, window, params);
   if (method === 'page.click') {
     await click(window, params.target);

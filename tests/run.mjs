@@ -104,6 +104,15 @@ try {
   const page = (await cli('page', 'new')).id;
   await cli('page', 'navigate', page, fixture.baseUrl);
   await poll(async () => /dynamic-ready/.test(await text(page)), 'dynamic rendered content');
+  const position = await cli('page', 'scroll', page, '0');
+  assert.equal(position.page, page);
+  assert.equal(typeof position.scrollY, 'number');
+  assert.equal(typeof position.documentHeight, 'number');
+  assert.equal(typeof position.viewportHeight, 'number');
+  assert.equal(typeof position.atBottom, 'boolean');
+  const moved = await cli('page', 'scroll', page, '400');
+  assert.ok(moved.scrollY >= position.scrollY);
+  await assert.rejects(() => cli('page', 'scroll', page, 'not-a-number'));
   const html = await cli('page', 'inspect', page, 'html');
   assert.match(html.html, /id="dynamic">dynamic-ready/);
   assert.match(await text(page), /node=undefined require=undefined/);

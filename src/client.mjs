@@ -28,7 +28,8 @@ function usage() {
     '  web-control page capture <page> <output-dir> [html|text|screenshot]...',
     '  web-control page click <page> <target>',
     '  web-control page fill <page> <target> <value>',
-    '  web-control page press <page> <target> <key>'
+    '  web-control page press <page> <target> <key>',
+    '  web-control page scroll <page> <delta-y>'
   ].join('\n');
 }
 
@@ -54,6 +55,7 @@ function parse(argv) {
     if (op === 'click' && argv.length === 4) return { method: 'page.click', params: { page: argv[2], target: argv[3] } };
     if (op === 'fill' && argv.length === 5) return { method: 'page.fill', params: { page: argv[2], target: argv[3], value: argv[4] } };
     if (op === 'press' && argv.length === 5) return { method: 'page.press', params: { page: argv[2], target: argv[3], key: argv[4] } };
+    if (op === 'scroll' && argv.length === 4 && /^-?\d+$/.test(argv[3]) && Number.isSafeInteger(Number(argv[3]))) return { method: 'page.scroll', params: { page: argv[2], deltaY: Number(argv[3]) } };
   }
   invalid('invalid invocation');
 }
