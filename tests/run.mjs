@@ -112,6 +112,20 @@ try {
   await cli('page', 'fill', page, '#name', 'rumiai');
   await poll(async () => /rumiai/.test(await text(page)), 'input reflected into DOM');
   assert.match(await text(page), /input-trusted=true/, 'text input must be browser delivered, not synthetic');
+  await cli('page', 'fill', page, '#name', 'updated name');
+  assert.match(await text(page), /updated name/, 'native fill replaces previous input value');
+  assert.match(await text(page), /input-trusted=true/, 'replacing input must remain trusted');
+
+  // Gmail-like compose controls, but served only by the isolated local fixture:
+  // no real account is accessed, no mail is read or sent.
+  await cli('page', 'fill', page, '#draft', 'local draft body');
+  assert.match(await text(page), /draft-input-trusted=true/, 'contenteditable input is trusted');
+  assert.match(await text(page), /local draft body/, 'contenteditable is updated');
+  await cli('page', 'press', page, '#draft', 'Enter');
+  assert.match(await text(page), /draft-key-trusted=true/, 'contenteditable keydown is trusted');
+  await cli('page', 'click', page, '#save-draft');
+  assert.match(await text(page), /draft-saved=local draft body/, 'compose-like draft is saved locally');
+  assert.match(await text(page), /click-trusted=true/, 'compose-like button receives trusted click');
   await cli('page', 'press', page, '#name', 'Enter');
   assert.match(await text(page), /key-trusted=true/, 'keydown must be browser delivered');
   try {
@@ -166,7 +180,7 @@ try {
       'private Unix socket', 'secure renderer excludes Node APIs',
       'visible start page and in-window address navigation',
       'real Electron navigation and dynamic DOM',
-      'trusted Chromium fill/click/press input', 'popup window tracking', 'HTML/text/PNG capture',
+      'trusted Chromium fill/click/press input and local rich-text draft', 'popup window tracking', 'HTML/text/PNG capture',
       'cookie/localStorage persistence across service restart',
       'controller survives closing all browser windows',
       'browser window recreated on demand'

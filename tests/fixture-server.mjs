@@ -44,6 +44,9 @@ export async function createFixtureServer() {
       <button id="popup-button">open popup</button>
       <input id="name" value=""><div id="pressed"></div><div id="webdriver"></div><div id="privileged"></div>
       <div id="input-trust"></div><div id="key-trust"></div><div id="click-trust"></div>
+      <div id="draft" contenteditable="true" role="textbox">previous draft</div>
+      <div id="draft-input-trust"></div><div id="draft-key-trust"></div>
+      <button id="save-draft">Save local draft</button><div id="saved-draft"></div>
       <div id="echo"></div>
     `, `
       document.querySelector('#webdriver').textContent = 'webdriver=' + String(navigator.webdriver);
@@ -59,6 +62,17 @@ export async function createFixtureServer() {
       document.querySelector('#popup-button').addEventListener('click', e => {
         document.querySelector('#click-trust').textContent = 'click-trusted=' + String(e.isTrusted);
         window.open('/popup', '_blank');
+      });
+      document.querySelector('#draft').addEventListener('input', e => {
+        document.querySelector('#draft-input-trust').textContent = 'draft-input-trusted=' + String(e.isTrusted);
+      });
+      document.querySelector('#draft').addEventListener('keydown', e => {
+        document.querySelector('#draft-key-trust').textContent = 'draft-key-trusted=' + String(e.isTrusted);
+      });
+      document.querySelector('#save-draft').addEventListener('click', e => {
+        document.querySelector('#saved-draft').textContent = 'draft-saved=' +
+          document.querySelector('#draft').innerText.trim() +
+          ' click-trusted=' + String(e.isTrusted);
       });
       document.querySelector('#name').addEventListener('input', e => {
         document.querySelector('#input-trust').textContent = 'input-trusted=' + String(e.isTrusted);
