@@ -73,6 +73,23 @@ A configured `web-control` default selects this provider for the ordinary public
 
 The original v0.1.0 package used the ordinary `web-control-service` command, colliding with an already-installed Playwright provider at package default selection. Version v0.1.1 declares the provider-specific command `electron-web-control-service` for the portable `web-control` service, without changing the public facility name. A formal two-provider integration test first selects Playwright, reproduces the failed v0.1.0 default selection, installs v0.1.1 without deleting the partial installation, switches the provider, and starts Electron through `srv`. This full recovery and coexistence scenario passed on Linux x86_64 and ARM64 in run `38088010462`. The separate macOS ARM64 package-validation job remains pending at the latest checkpoint; hosted tests do not validate Google sign-in or the user's physical machines.
 
+## Managed Electron HOME inheritance (v0.1.5)
+
+When `electron-web-control` is launched as an integrated `m` package service,
+`bin/web-control-service` explicitly requests one-shot
+`m_ENV_DO_NOT_OVERRIDE=HOME` immediately before invoking the separately managed
+`electron` runtime. The runtime package launcher thus passes the enclosing
+application's `HOME` to Electron rather than replacing it with the binary
+package's own HOME. The request is consumed by that single nested launcher; it
+does not change `state-path`, package ownership, service identity, provider
+selection or the normal browser `WEB_CONTROL_HOME`/session directory.
+Standalone npm/development runs make no `m`-specific override request.
+
+This corrects which HOME the managed runtime receives. It does **not** centrally
+provision, import, trust, share or synchronize CA certificates across browser
+profiles or platforms; TLS verification stays enabled. Centralized browser trust
+management is tracked separately in `rumiai-dev/todo/`.
+
 ## Portable document scrolling
 
 Electron v0.1.4 realizes the new, complete `web-control 2` compatibility contract. Previously published releases still realize immutable `web-control 1`; the package resolver does not infer compatibility across levels. Consumers of the scrolling feature must require compatibility level `2` explicitly.
