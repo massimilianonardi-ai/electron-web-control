@@ -77,8 +77,8 @@ jobs:
             "$RUNNER_TEMP/rumiai-os/m" mk --project "$PWD" check test build
           '
           test -s dist/release-artifact
-          test -s dist/electron-web-control-v0.1.5-all.tar.gz
-          tar -tzf dist/electron-web-control-v0.1.5-all.tar.gz > /tmp/electron-web-control-artifact-contents
+          test -s dist/electron-web-control-v0.1.6-all.tar.gz
+          tar -tzf dist/electron-web-control-v0.1.6-all.tar.gz > /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/package.json' /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/src/main.mjs' /tmp/electron-web-control-artifact-contents
           grep -Fx 'electron-web-control/bin/web-control-service' /tmp/electron-web-control-artifact-contents
