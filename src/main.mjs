@@ -6,6 +6,7 @@ import process from 'node:process';
 import { app, BrowserWindow, Menu } from 'electron';
 import { webControlHome, webControlSocketPath } from './runtime.mjs';
 import { startPageURL } from './start-page.mjs';
+import { DebugSessions } from './debug-sessions.mjs';
 
 console.error('[electron-web-control] entering Electron main');
 process.umask(0o077);
@@ -25,6 +26,8 @@ fs.mkdirSync(USER_DATA, { recursive: true, mode: 0o700 });
 app.setPath('userData', USER_DATA);
 
 const pages = new Map();
+const pageIds = new WeakMap();
+const debugSessions = new DebugSessions();
 let nextPageId = 1;
 let server = null;
 let stopping = false;
@@ -45,7 +48,8 @@ function secureWebPreferences() {
 function registerWindow(window) {
   const id = 'page-' + nextPageId++;
   pages.set(id, window);
-  window.once('closed', () => pages.delete(id));
+  pageIds.set(window, id);
+  window.once('closed', () => { pages.delete(id); void debugSessions.closePage(id); });
   window.webContents.once('render-process-gone', () => {
     if (!window.isDestroyed()) window.destroy();
   });
@@ -209,7 +213,10 @@ async function capture(id, window, params) {
 // Internal, page-scoped Chromium input channel: no debugging listener is opened.
 async function withNativeInput(window, action) {
   const debuggerSession = window.webContents.debugger;
-  if (debuggerSession.isAttached()) throw new Error('page debugger is already attached');
+  if (debuggerSession.isAttached()) {
+    if (!debugSessions.isManaged(pageIds.get(window))) throw new Error('page debugger is already attached');
+    return action((method, params) => debuggerSession.sendCommand(method, params));
+  }
   debuggerSession.attach('1.3');
   try {
     return await action((method, params) => debuggerSession.sendCommand(method, params));
@@ -423,8 +430,40 @@ async function dispatch(method, params = {}) {
     window.close();
     return { page: params.page, closed: true };
   }
+  if (method === 'debug.session.send') {
+    return { session: params.session,
+      result: await debugSessions.send(params.session, params.method, params.params ?? {}) };
+  }
+  if (method === 'debug.session.events') {
+    return debugSessions.events(params.session, params.after, params.limit, params.waitMs);
+  }
+  if (method === 'debug.session.close') {
+    return debugSessions.close(params.session);
+  }
   const id = params.page;
   const window = requirePage(id);
+  if (method === 'debug.session.open') {
+    return debugSessions.open(id, async () => {
+      const bridge = window.webContents.debugger;
+      if (bridge.isAttached()) throw new Error('debug.page-already-attached: debugger already in use');
+      bridge.attach('1.3');
+      const onEvent = (handler) => bridge.on('message',
+        (_event, eventMethod, eventParams) => handler(eventMethod, eventParams));
+      const onClose = (handler) => bridge.on('detach', handler);
+      return {
+        send: (command, args) => bridge.sendCommand(command, args),
+        onEvent,
+        onClose,
+        close: async () => { if (bridge.isAttached()) bridge.detach(); }
+      };
+    });
+  }
+  if (method === 'debug.cdp') {
+    if (!params.method || typeof params.method !== 'string') {
+      throw new Error('debug.invalid-method: protocol method is required');
+    }
+    return withNativeInput(window, (send) => send(params.method, params.params || {}));
+  }
   if (method === 'page.navigate') {
     if (typeof params.url !== 'string' || !params.url) throw new Error('page.navigate requires url');
     await window.loadURL(params.url);
@@ -491,6 +530,7 @@ async function shutdown(code = 0) {
   stopping = true;
   for (const socket of connections) socket.destroy();
   if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await debugSessions.closeAll();
   for (const window of pages.values()) if (!window.isDestroyed()) window.destroy();
   try { await fsp.unlink(SOCKET); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
