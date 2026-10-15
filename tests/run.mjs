@@ -6,6 +6,7 @@ import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createFixtureServer } from './fixture-server.mjs';
+import { checkPersistentDebug } from './debug-integration.mjs';
 import { webControlSocketPath } from '../src/runtime.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -158,6 +159,9 @@ try {
   }
   assert.match(await fs.readFile(captured.files.html, 'utf8'), /dynamic-ready/);
   assert.equal((await fs.readFile(captured.files.screenshot)).subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+
+  process.stderr.write('Electron test: persistent CDP debugger\n');
+  await checkPersistentDebug(cli, page, fixture.baseUrl);
 
   process.stderr.write('Electron test: login and persistence\n');
   await cli('page', 'navigate', page, fixture.baseUrl + '/login');
