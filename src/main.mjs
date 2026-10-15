@@ -447,14 +447,27 @@ async function dispatch(method, params = {}) {
       const bridge = window.webContents.debugger;
       if (bridge.isAttached()) throw new Error('debug.page-already-attached: debugger already in use');
       bridge.attach('1.3');
-      const onEvent = (handler) => bridge.on('message',
-        (_event, eventMethod, eventParams) => handler(eventMethod, eventParams));
-      const onClose = (handler) => bridge.on('detach', handler);
+      let messageListener;
+      let detachListener;
+      const cleanup = () => {
+        if (messageListener) bridge.off('message', messageListener);
+        if (detachListener) bridge.off('detach', detachListener);
+      };
       return {
         send: (command, args) => bridge.sendCommand(command, args),
-        onEvent,
-        onClose,
-        close: async () => { if (bridge.isAttached()) bridge.detach(); }
+        onEvent(handler) {
+          messageListener = (_event, eventMethod, eventParams) =>
+            handler(eventMethod, eventParams);
+          bridge.on('message', messageListener);
+        },
+        onClose(handler) {
+          detachListener = (_event, reason) => { cleanup(); handler(reason); };
+          bridge.once('detach', detachListener);
+        },
+        async close() {
+          cleanup();
+          if (bridge.isAttached()) bridge.detach();
+        }
       };
     });
   }
